@@ -26,8 +26,11 @@ class FrozenLakeEnv(object):
     if (int(t*1000) == 1): # When starting the simulation, reset the env.
       self._env.reset()
 
-    assert np.sum(np.array(a)==1) == 1
+    assert np.sum(np.array(a)==1) == 1 # Make sure only one action is taken.
 
     a = np.argmax(a)
     next_state, reward, done, _ = self._env.step(a)
+    if done == True:
+      self._env.reset()
+
     return next_state, reward, done

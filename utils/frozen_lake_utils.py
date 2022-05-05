@@ -4,7 +4,10 @@
 
 import _init_paths
 import numpy as np
+import pickle
 
+from collections import defaultdict
+import consts.dir_consts as drc
 import consts.exp_consts as epc
 
 class FrozenLakeUtils(object):
@@ -14,6 +17,7 @@ class FrozenLakeUtils(object):
       shape <str>: One of "4x4", "8x8" - The shape of the FrozenLake env grid.
     """
     self._shape = epc.FL_SHAPE[shape]
+    self._res_path = drc.RESULTS_DIR+"/frozen_lake_task/"
 
   def get_one_hot_encoding(self, state):
     """

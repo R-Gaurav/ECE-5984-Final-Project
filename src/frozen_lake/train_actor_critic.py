@@ -14,17 +14,13 @@ import consts.exp_consts as epc
 from utils.frozen_lake_env import FrozenLakeEnv
 from utils.frozen_lake_utils import FrozenLakeUtils
 
-if __name__ == "__main__":
-  parser = argparse.ArgumentParser()
-  parser.add_argument(
-      "--shape", type=str, default="4x4", help="Shape of the FrozenLake Env?")
-  args = parser.parse_args()
-
-  fl_obj = FrozenLakeEnv(shape=args.shape)
-  fl_utl = FrozenLakeUtils(shape=args.shape)
+def get_network(shape):
+  fl_obj = FrozenLakeEnv(shape=shape)
+  fl_utl = FrozenLakeUtils(shape=shape)
 
   with nengo.Network() as net:
-    env_node = nengo.Node(lambda t, x: fl_obj.act_on_env(t, x), size_in=4, size_out=3)
+    env_node = nengo.Node(
+        lambda t, x: fl_obj.act_on_env(t, x), size_in=4, size_out=3)
     state_node = nengo.Node(None, size_in=1) # Separate the state info from env.
     reward_node = nengo.Node(None, size_in=1) # Separate reward info from env.
     done_node = nengo.Node(None, size_in=1) # Separate done info from env.
@@ -44,9 +40,10 @@ if __name__ == "__main__":
     value_node = nengo.Node(None, size_in=1)
 
     # Probe the value, reward, and done nodes.
-    probe_value = nengo.Probe(value_node)
-    probe_reward = nengo.Probe(reward_node)
-    probe_done = nengo.Probe(done_node)
+    net.probe_value = nengo.Probe(value_node, synapse=None)
+    net.probe_reward = nengo.Probe(reward_node, synapse=None)
+    net.probe_done = nengo.Probe(done_node, synapse=None)
+    net.probe_state = nengo.Probe(state_node, synapse=None)
 
     # Compute the value error.
     value_error_node = nengo.Node(None, size_in=1)
@@ -67,7 +64,7 @@ if __name__ == "__main__":
     ################## A C T O R ####################
     ############################################################################
     raw_actions_node = nengo.Node(None, size_in=4, label="Actor's raw actions")
-    probe_raw_actions = nengo.Probe(raw_actions_node, synapse=None)
+    net.probe_raw_actions = nengo.Probe(raw_actions_node, synapse=None)
 
     def softmax(t, x):
       return np.exp(x)/np.sum(np.exp(x))
@@ -78,7 +75,7 @@ if __name__ == "__main__":
     choice_node = nengo.Node(
         output=fl_utl.choose_pblt_based_action, size_in=4, size_out=4,
         label="Agent's Action Choice")
-    probe_choice = nengo.Probe(choice_node, synapse=None)
+    net.probe_choice = nengo.Probe(choice_node, synapse=None)
     nengo.Connection(actions_prob_node, choice_node, synapse=None)
 
     # Connect the Action Choice to the Environment.
@@ -104,19 +101,35 @@ if __name__ == "__main__":
     nengo.Connection(actor_error_node, learn_conn_act.learning_rule, transform=-1,
                      synapse=epc.TAU_SLOW)
 
+  return net
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  parser.add_argument(
+      "--shape", type=str, default="4x4", help="Shape of the FrozenLake Env?")
+  parser.add_argument(
+      "--sim_run_time", type=int, default=10, help="Simulation Run Time?")
+
+  args = parser.parse_args()
+  net = get_network(args.shape)
+
   # Run the Actor-Critic model.
   sim=nengo.Simulator(net)
-  sim.run(10)
+  sim.run(args.sim_run_time)
 
   print("Simulation done! Saving results...")
-  pickle.dump(sim.data[probe_done],
+  pickle.dump(sim.data[net.probe_done],
               open(drc.RESULTS_DIR+"/frozen_lake_task/task_done.p", "wb"))
-  pickle.dump(sim.data[probe_value],
-              open(drc.RESULTS_DIR+"/frozen_lake_task/actor_value.p", "wb"))
-  pickle.dump(sim.data[probe_reward],
-              open(drc.RESULTS_DIR+"/frozen_lake_task/actor_reward.p", "wb"))
-  pickle.dump(sim.data[probe_choice],
-              open(drc.RESULTS_DIR+"/frozen_lake_task/actor_act_choice.p", "wb"))
-  pickle.dump(sim.data[probe_raw_actions],
+  pickle.dump(sim.data[net.probe_value],
+              open(drc.RESULTS_DIR+"/frozen_lake_task/critic_values.p", "wb"))
+  pickle.dump(sim.data[net.probe_reward],
+              open(drc.RESULTS_DIR+"/frozen_lake_task/actor_rewards.p", "wb"))
+  pickle.dump(sim.data[net.probe_choice],
+              open(drc.RESULTS_DIR+"/frozen_lake_task/actor_act_choices.p", "wb"))
+  pickle.dump(sim.data[net.probe_raw_actions],
               open(drc.RESULTS_DIR+"/frozen_lake_task/actor_raw_actions.p", "wb"))
+  pickle.dump(sim.trange(),
+              open(drc.RESULTS_DIR+"/frozen_lake_task/sim_trange.p", "wb"))
+  pickle.dump(sim.data[net.probe_state],
+              open(drc.RESULTS_DIR+"/frozen_lake_task/env_states.p", "wb"))
   print("Results saved! Exiting...")
