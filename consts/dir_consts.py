@@ -1,6 +1,6 @@
 import os
 
-MAIN_DIR = "/home/rgaurav/projects/def-anarayan/rgaurav/ECE-5984-Final-Project/"
+MAIN_DIR = "/scratch/rgaurav/ece_5984_drl_final_project/"
 RESULTS_DIR = MAIN_DIR + "/exp_results/"
 
 ################################################################################
